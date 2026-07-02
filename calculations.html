@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>100マスぐらい計算　生成ツール</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --primary-color: #4a6fa5;
+            --header-bg: #e9ecef;
+            --border-color: #dee2e6;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            max-width: 1150px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* 操作パネルのスタイル */
+        .input-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            background: #f1f3f5;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .input-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-field {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            font-weight: bold;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .checkbox-field input {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        input[type="number"], select {
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            text-align: center;
+            background: white;
+        }
+
+        input[type="number"] {
+            width: 80px;
+        }
+
+        select {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 印刷ボタンのスタイル */
+        .btn-print {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-print:hover {
+            background-color: #218838;
+        }
+
+        .error-message {
+            color: #e63946;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            max-width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background: white;
+            font-size: 14px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 10px 4px;
+            text-align: center;
+            min-width: 65px;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: var(--header-bg);
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .axis-header {
+            background-color: #dbe5f1;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .corner-header {
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 18px;
+        }
+
+        .result-cell {
+            background-color: #fff;
+            color: #333;
+        }
+
+        .result-cell.hidden-mode {
+            background-color: #fafafa;
+        }
+
+        /* 三択クイズ用のスタイル */
+        .quiz-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .quiz-option {
+            width: 100%;
+            max-width: 70px;
+            padding: 3px 2px;
+            font-size: 12px;
+            background-color: #f8f9fa;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            text-align: center;
+        }
+
+        .quiz-option:hover {
+            background-color: #e2e6ea;
+            border-color: #adb5bd;
+        }
+
+        .quiz-option.correct-choice {
+            background-color: #28a745 !important;
+            color: white !important;
+            border-color: #28a745 !important;
+            font-weight: bold;
+        }
+
+        .quiz-option.wrong-choice {
+            background-color: #dc3545 !important;
+            color: white !important;
+            border-color: #dc3545 !important;
+            text-decoration: line-through;
+        }
+
+        tr:hover td.axis-header {
+            background-color: #cbdcf0;
+        }
+
+        /* ==========================================
+           印刷用スタイル（A4狙い）
+           ========================================== */
+        @media print {
+            @page {
+                size: A4 landscape; /* 横向き固定 */
+                margin: 6mm 10mm;   /* 余白 */
+            }
+
+            html, body {
+                background-color: #fff;
+                padding: 0;
+                margin: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden; /* 2枚目の白紙出力を防止 */
+            }
+
+            .container {
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+                max-width: 100%;
+                width: 100%;
+            }
+
+            /* タイトル消去 */
+            h1 {
+                display: none !important;
+            }
+
+            .input-group {
+                display: none !important;
+            }
+
+            .table-wrapper {
+                border: none;
+                overflow: visible;
+                width: 100%;
+            }
+
+            table {
+                width: 100%;
+                max-height: 100%;
+                table-layout: fixed;
+                page-break-inside: avoid;
+                page-break-after: avoid;
+                font-size: 11pt;
+            }
+
+            th, td {
+                padding: 4px 1px !important;
+                border: 1px solid #000 !important;
+                word-break: keep-all;
+                overflow: hidden;
+            }
+
+            /* 結果を「隠す」にした白いセル（.hidden-mode）の縦幅 */
+            td.result-cell.hidden-mode {
+                padding-top: 18px !important;
+                padding-bottom: 18px !important;
+            }
+
+            /* 三択クイズの印刷レイアウト */
+            .quiz-container {
+                flex-direction: column;
+                gap: 2px;
+                align-items: center;
+                justify-content: center;
+                padding: 1px 0;
+            }
+
+            .quiz-option {
+                border: none !important;
+                background: none !important;
+                color: #000 !important;
+                text-align: center;
+                padding: 0;
+                font-size: 9.5pt;
+                max-width: 100%;
+                width: 100%;
+                display: block;
+                line-height: 1.1;
+            }
+            
+            .quiz-option::before {
+                display: none !important;
+                content: "" !important;
+            }
+
+            th, .axis-header, .corner-header {
+                background-color: #e9ecef !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>100マスぐらい計算　生成ツール</h1>
+    
+    <div class="input-group">
+        <div class="input-field">
+            <label for="start-val">開始:</label>
+            <input type="number" id="start-val" value="1">
+        </div>
+        <div class="input-field">
+            <label for="end-val">終了:</label>
+            <input type="number" id="end-val" value="9">
+        </div>
+        <div class="input-field">
+            <label for="operator">計算:</label>
+            <select id="operator">
+                <option value="multiply">× （掛け算）</option>
+                <option value="add">＋ （足し算）</option>
+                <option value="subtract">ー （引き算）</option>
+            </select>
+        </div>
+        <div class="input-field">
+            <label for="display-mode">結果:</label>
+            <select id="display-mode">
+                <option value="hide" selected>隠す</option>
+                <option value="show">表示する</option>
+                <option value="quiz">三択クイズ</option>
+            </select>
+        </div>
+        <label class="checkbox-field">
+            <input type="checkbox" id="random-mode" checked> ランダム
+        </label>
+        
+        <button class="btn-print" onclick="window.print()">
+            🖨️ 印刷
+        </button>
+    </div>
+
+    <div class="error-message" id="error-msg">※終了の値は開始の値以上にしてください。</div>
+
+    <div class="table-wrapper">
+        <table id="matrix-table">
+            </table>
+    </div>
+</div>
+
+<script>
+    const startInput = document.getElementById('start-val');
+    const endInput = document.getElementById('end-val');
+    const operatorSelect = document.getElementById('operator');
+    const displayModeSelect = document.getElementById('display-mode');
+    const randomCheckbox = document.getElementById('random-mode');
+    const matrixTable = document.getElementById('matrix-table');
+    const errorMsg = document.getElementById('error-msg');
+
+    let currentRowNumbers = [];
+    let currentColNumbers = [];
+
+    function shuffle(array) {
+        const result = [...array];
+        for (let i = result.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+    }
+
+    function generateQuizOptions(correctAnswer) {
+        let options = [correctAnswer];
+        let range = correctAnswer === 0 ? 5 : Math.max(5, Math.abs(Math.floor(correctAnswer * 0.3)));
+
+        while (options.length < 3) {
+            let offset = Math.floor(Math.random() * (range * 2 + 1)) - range;
+            if (offset !== 0) {
+                let dummy = correctAnswer + offset;
+                if (!options.includes(dummy)) {
+                    options.push(dummy);
+                }
+            }
+        }
+        return shuffle(options);
+    }
+
+    function updateNumbersAndRender() {
+        const start = parseInt(startInput.value, 10);
+        const end = parseInt(endInput.value, 10);
+        const isRandom = randomCheckbox.checked;
+
+        if (isNaN(start) || isNaN(end)) return;
+        
+        if (start > end) {
+            errorMsg.textContent = "※終了の値は開始の値以上にしてください。";
+            errorMsg.style.display = 'block';
+            matrixTable.innerHTML = '';
+            return;
+        } else {
+            errorMsg.style.display = 'none';
+        }
+
+        let fullPool = [];
+        for (let k = start; k <= end; k++) {
+            fullPool.push(k);
+        }
+
+        let selectedNumbers = [];
+        if (fullPool.length > 15) {
+            const shuffledPool = shuffle(fullPool);
+            selectedNumbers = shuffledPool.slice(0, 15);
+            if (!isRandom) {
+                selectedNumbers.sort((a, b) => a - b);
+            }
+        } else {
+            selectedNumbers = fullPool;
+        }
+
+        let rows = [...selectedNumbers];
+        let cols = [...selectedNumbers];
+
+        if (isRandom) {
+            rows = shuffle(rows);
+            cols = shuffle(cols);
+        }
+
+        currentRowNumbers = rows;
+        currentColNumbers = cols;
+
+        renderMatrix();
+    }
+
+    function renderMatrix() {
+        if (currentRowNumbers.length === 0 || currentColNumbers.length === 0) return;
+
+        const op = operatorSelect.value;
+        const mode = displayModeSelect.value;
+
+        let opSymbol = '×';
+        if (op === 'add') opSymbol = '＋';
+        if (op === 'subtract') opSymbol = 'ー';
+
+        let tableHtml = '';
+
+        tableHtml += `<thead><tr><th class="corner-header">${opSymbol}</th>`;
+        for (let j of currentColNumbers) {
+            tableHtml += `<th class="axis-header">${j}</th>`;
+        }
+        tableHtml += '</tr></thead><tbody>';
+
+        for (let i of currentRowNumbers) {
+            tableHtml += '<tr>';
+            tableHtml += `<td class="axis-header">${i}</td>`;
+            
+            for (let j of currentColNumbers) {
+                let result = 0;
+                if (op === 'multiply') result = i * j;
+                if (op === 'add') result = i + j;
+                if (op === 'subtract') result = i - j;
+
+                if (mode === 'hide') {
+                    tableHtml += `<td class="result-cell hidden-mode"></td>`;
+                } else if (mode === 'show') {
+                    tableHtml += `<td class="result-cell">${result}</td>`;
+                } else if (mode === 'quiz') {
+                    const choices = generateQuizOptions(result);
+                    tableHtml += `<td class="result-cell">`;
+                    tableHtml += `<div class="quiz-container">`;
+                    choices.forEach(choice => {
+                        tableHtml += `<div class="quiz-option" data-answer="${result}" data-value="${choice}" onclick="checkQuizChoice(this)">${choice}</div>`;
+                    });
+                    tableHtml += `</div>`;
+                    tableHtml += `</td>`;
+                }
+            }
+            tableHtml += '</tr>';
+        }
+        tableHtml += '</tbody>';
+
+        matrixTable.innerHTML = tableHtml;
+    }
+
+    function checkQuizChoice(element) {
+        const correctAnswer = parseInt(element.getAttribute('data-answer'), 10);
+        const selectedValue = parseInt(element.getAttribute('data-value'), 10);
+        
+        if (selectedValue === correctAnswer) {
+            element.classList.add('correct-choice');
+        } else {
+            element.classList.add('wrong-choice');
+        }
+    }
+
+    startInput.addEventListener('input', updateNumbersAndRender);
+    endInput.addEventListener('input', updateNumbersAndRender);
+    randomCheckbox.addEventListener('change', updateNumbersAndRender);
+    operatorSelect.addEventListener('change', renderMatrix);
+    displayModeSelect.addEventListener('change', renderMatrix);
+
+    updateNumbersAndRender();
+</script>
+
+</body>
+</html>

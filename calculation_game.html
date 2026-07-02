@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>計算タイムアタック</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --primary-color: #4a6fa5;
+            --header-bg: #e9ecef;
+            --border-color: #dee2e6;
+            --accent-color: #007bff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 操作パネルを上部に固定 */
+        .sticky-panel {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background-color: #ffffff;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            font-size: 18px;
+            color: #333;
+            margin: 0 0 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* スマホで押しやすい操作パネル */
+        .input-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .input-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+
+        input[type="number"], select {
+            padding: 10px;
+            font-size: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            text-align: center;
+            background: white;
+            width: 100%;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        select {
+            cursor: pointer;
+            font-weight: bold;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M0 3l5 5 5-5z' fill='%236c757d'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 25px;
+        }
+
+        .error-message {
+            grid-column: span 2;
+            color: #e63946;
+            font-weight: bold;
+            text-align: center;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        /* メインコンテナ */
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 15px;
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 開始ボタンのエリア */
+        .start-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            min-height: 250px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 20px;
+        }
+
+        .btn-start {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+            transition: transform 0.1s, background-color 0.2s;
+            width: 100%;
+            max-width: 260px;
+        }
+
+        .btn-start:active {
+            transform: scale(0.97);
+            background-color: #0056b3;
+        }
+
+        /* タイマー表示エリア */
+        .timer-display {
+            font-size: 16px;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+            display: none;
+            background: #e9ecef;
+            padding: 6px 16px;
+            border-radius: 20px;
+        }
+
+        /* テーブルエリア */
+        .table-wrapper {
+            display: none;
+            overflow: auto;
+            width: 100%;
+            max-height: 60vh; 
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            font-size: 14px;
+        }
+
+        th, td {
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+            min-width: 52px;
+            height: 52px;
+            vertical-align: middle;
+            box-sizing: border-box;
+            padding: 0;
+        }
+
+        /* ヘッダー・軸のスクロール固定 */
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 8px 4px;
+        }
+
+        th.axis-header, td.axis-header {
+            position: sticky;
+            left: 0;
+            z-index: 9;
+        }
+        td.axis-header {
+            padding: 8px 4px;
+        }
+
+        th.corner-header {
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 11;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 16px;
+            padding: 8px 4px;
+        }
+
+        th {
+            background-color: var(--header-bg);
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .axis-header {
+            background-color: #dbe5f1;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        /* 入力モード用のテキストボックス */
+        .matrix-input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            background-color: #fafafa;
+            transition: background-color 0.2s, color 0.2s;
+            border-radius: 0;
+            padding: 0;
+        }
+        
+        .matrix-input:focus {
+            outline: none;
+            background-color: #eef3ff;
+        }
+
+        .matrix-input.correct-input {
+            background-color: #d4edda !important;
+            color: #155724 !important;
+        }
+
+        .matrix-input.wrong-input {
+            background-color: #f8d7da !important;
+            color: #721c24 !important;
+        }
+
+        /* 三択クイズ用のスタイル */
+        .quiz-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 2px;
+        }
+
+        .quiz-option {
+            width: 100%;
+            padding: 2px 0;
+            font-size: 11px;
+            font-weight: bold;
+            background-color: #f1f3f5;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .quiz-option.correct-choice {
+            background-color: #28a745 !important;
+            color: white !important;
+            border-color: #28a745 !important;
+        }
+
+        .quiz-option.wrong-choice {
+            background-color: #dc3545 !important;
+            color: white !important;
+            border-color: #dc3545 !important;
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        /* 全問正解時のクリア画面 */
+        .clear-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .clear-content {
+            background: white;
+            padding: 30px 20px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 340px;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.7); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .clear-title {
+            font-size: 24px;
+            color: #28a745;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .clear-time-text {
+            font-size: 18px;
+            color: #495057;
+            margin-bottom: 20px;
+        }
+
+        .clear-time-text span {
+            font-size: 26px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .btn-retry {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-retry:active {
+            transform: scale(0.98);
+            background-color: #1e7e34;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sticky-panel">
+    <h1>計算タイムアタック</h1>
+    
+    <div class="input-group">
+        <div class="input-field">
+            <label for="start-val">開始</label>
+            <input type="number" id="start-val" value="1" inputmode="numeric">
+        </div>
+        <div class="input-field">
+            <label for="end-val">終了</label>
+            <input type="number" id="end-val" value="10" inputmode="numeric">
+        </div>
+        <div class="input-field">
+            <label for="operator">計算</label>
+            <select id="operator">
+                <option value="add">＋ （足し算）</option>
+                <option value="subtract">ー （引き算）</option>
+                <option value="multiply">× （掛け算）</option>
+            </select>
+        </div>
+        <div class="input-field">
+            <label for="display-mode">モード</label>
+            <select id="display-mode">
+                <option value="input-mode" selected>入力モード</option>
+                <option value="quiz">三択クイズ</option>
+            </select>
+        </div>
+        <div class="error-message" id="error-msg">※終了の値を開始以上にしてね</div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="timer-display" id="timer-display">タイム: 00:00</div>
+
+    <div class="start-screen" id="start-screen">
+        <button class="btn-start" onclick="startMatrix()">スタート！</button>
+    </div>
+
+    <div class="table-wrapper" id="table-wrapper">
+        <table id="matrix-table">
+            </table>
+    </div>
+</div>
+
+<div class="clear-modal" id="clear-modal">
+    <div class="clear-content">
+        <div class="clear-title">🎉 全問正解！！</div>
+        <div class="clear-time-text">かかった時間<br><span id="final-time">0秒</span></div>
+        <button class="btn-retry" onclick="closeModalAndRetry()">もう１回あそぶ</button>
+    </div>
+</div>
+
+<script>
+    const startInput = document.getElementById('start-val');
+    const endInput = document.getElementById('end-val');
+    const operatorSelect = document.getElementById('operator');
+    const displayModeSelect = document.getElementById('display-mode');
+    const matrixTable = document.getElementById('matrix-table');
+    const errorMsg = document.getElementById('error-msg');
+    
+    const startScreen = document.getElementById('start-screen');
+    const tableWrapper = document.getElementById('table-wrapper');
+    const timerDisplay = document.getElementById('timer-display');
+    const clearModal = document.getElementById('clear-modal');
+    const finalTimeSpan = document.getElementById('final-time');
+
+    let currentRowNumbers = [];
+    let currentColNumbers = [];
+    let totalCells = 0;
+
+    // タイマー用変数
+    let startTime = 0;
+    let timerInterval = null;
+
+    function shuffle(array) {
+        const result = [...array];
+        for (let i = result.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+    }
+
+    function generateQuizOptions(correctAnswer) {
+        let options = [correctAnswer];
+        let range = correctAnswer === 0 ? 5 : Math.max(5, Math.abs(Math.floor(correctAnswer * 0.3)));
+
+        while (options.length < 3) {
+            let offset = Math.floor(Math.random() * (range * 2 + 1)) - range;
+            if (offset !== 0) {
+                let dummy = correctAnswer + offset;
+                if (!options.includes(dummy)) {
+                    options.push(dummy);
+                }
+            }
+        }
+        return shuffle(options);
+    }
+
+    // タイマー管理
+    function startTimer() {
+        startTime = Date.now();
+        timerDisplay.style.display = 'block';
+        timerInterval = setInterval(() => {
+            const elapsedTime = Date.now() - startTime;
+            const seconds = Math.floor(elapsedTime / 1000) % 60;
+            const minutes = Math.floor(elapsedTime / 60000);
+            timerDisplay.textContent = `タイム: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }, 1000);
+    }
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+        const totalElapsedTime = Date.now() - startTime;
+        const totalSeconds = Math.floor(totalElapsedTime / 1000);
+        
+        // 秒・分を綺麗にテキスト化
+        if (totalSeconds < 60) {
+            finalTimeSpan.textContent = `${totalSeconds} 秒`;
+        } else {
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            finalTimeSpan.textContent = `${m} 分 ${s} 秒`;
+        }
+    }
+
+    function startMatrix() {
+        const start = parseInt(startInput.value, 10);
+        const end = parseInt(endInput.value, 10);
+
+        if (isNaN(start) || isNaN(end)) return;
+        
+        if (start > end) {
+            errorMsg.style.display = 'block';
+            return;
+        } else {
+            errorMsg.style.display = 'none';
+        }
+
+        let fullPool = [];
+        for (let k = start; k <= end; k++) {
+            fullPool.push(k);
+        }
+
+        let selectedNumbers = [];
+        if (fullPool.length > 10) {
+            const shuffledPool = shuffle(fullPool);
+            selectedNumbers = shuffledPool.slice(0, 10);
+        } else {
+            selectedNumbers = fullPool;
+        }
+
+        currentRowNumbers = shuffle(selectedNumbers);
+        currentColNumbers = shuffle(selectedNumbers);
+        totalCells = currentRowNumbers.length * currentColNumbers.length; // 総マス数
+
+        startScreen.style.display = 'none';
+        tableWrapper.style.display = 'block';
+
+        renderMatrix();
+        startTimer(); // タイマースタート
+    }
+
+    function renderMatrix() {
+        if (currentRowNumbers.length === 0 || currentColNumbers.length === 0) return;
+
+        const op = operatorSelect.value;
+        const mode = displayModeSelect.value;
+
+        let opSymbol = '×';
+        if (op === 'add') opSymbol = '＋';
+        if (op === 'subtract') opSymbol = 'ー';
+
+        let tableHtml = '';
+
+        tableHtml += `<thead><tr><th class="corner-header">${opSymbol}</th>`;
+        for (let j of currentColNumbers) {
+            tableHtml += `<th>${j}</th>`;
+        }
+        tableHtml += '</tr></thead><tbody>';
+
+        for (let i of currentRowNumbers) {
+            tableHtml += '<tr>';
+            tableHtml += `<td class="axis-header">${i}</td>`;
+            
+            for (let j of currentColNumbers) {
+                let result = 0;
+                if (op === 'multiply') result = i * j;
+                if (op === 'add') result = i + j;
+                if (op === 'subtract') result = i - j;
+
+                if (mode === 'input-mode') {
+                    tableHtml += `<td>`;
+                    tableHtml += `<input type="number" inputmode="numeric" class="matrix-input" data-answer="${result}" oninput="validateInput(this)">`;
+                    tableHtml += `</td>`;
+                } else if (mode === 'quiz') {
+                    const choices = generateQuizOptions(result);
+                    tableHtml += `<td>`;
+                    tableHtml += `<div class="quiz-container">`;
+                    choices.forEach(choice => {
+                        tableHtml += `<div class="quiz-option" data-answer="${result}" data-value="${choice}" onclick="checkQuizChoice(this)">${choice}</div>`;
+                    });
+                    tableHtml += `</div>`;
+                    tableHtml += `</td>`;
+                }
+            }
+            tableHtml += '</tr>';
+        }
+        tableHtml += '</tbody>';
+
+        matrixTable.innerHTML = tableHtml;
+    }
+
+    // 全問正解かチェック
+    function checkGameClear() {
+        const mode = displayModeSelect.value;
+
+        if (mode === 'input-mode') {
+            const correctInputs = document.querySelectorAll('.matrix-input.correct-input');
+            if (correctInputs.length === totalCells) {
+                handleClear();
+            }
+        } else if (mode === 'quiz') {
+            const correctChoices = document.querySelectorAll('.quiz-option.correct-choice');
+            if (correctChoices.length === totalCells) {
+                handleClear();
+            }
+        }
+    }
+
+    // クリア時
+    function handleClear() {
+        stopTimer();
+        clearModal.style.display = 'flex';
+    }
+
+    // 「もう1回あそぶ」を押したときの処理
+    function closeModalAndRetry() {
+        clearModal.style.display = 'none';
+        startMatrix(); // 現在の設定のまま、再生成して開始
+    }
+
+    function validateInput(inputElement) {
+        const correctAnswer = parseInt(inputElement.getAttribute('data-answer'), 10);
+        const userValue = parseInt(inputElement.value, 10);
+
+        if (inputElement.value === "") {
+            inputElement.classList.remove('correct-input', 'wrong-input');
+            return;
+        }
+
+        if (userValue === correctAnswer) {
+            inputElement.classList.remove('wrong-input');
+            inputElement.classList.add('correct-input');
+            checkGameClear(); // 正解するたびにクリア判定
+        } else {
+            inputElement.classList.remove('correct-input');
+            inputElement.classList.add('wrong-input');
+        }
+    }
+
+    function checkQuizChoice(element) {
+        if (element.classList.contains('correct-choice') || element.classList.contains('wrong-choice')) return;
+        
+        const parentContainer = element.parentElement;
+        if (parentContainer.querySelector('.correct-choice')) return; 
+
+        const correctAnswer = parseInt(element.getAttribute('data-answer'), 10);
+        const selectedValue = parseInt(element.getAttribute('data-value'), 10);
+        
+        if (selectedValue === correctAnswer) {
+            element.classList.add('correct-choice');
+            checkGameClear(); // クイズ正解時にクリア判定
+        } else {
+            element.classList.add('wrong-choice');
+        }
+    }
+
+    function resetToStart() {
+        clearInterval(timerInterval);
+        timerDisplay.style.display = 'none';
+        timerDisplay.textContent = 'タイム: 00:00';
+        startScreen.style.display = 'flex';
+        tableWrapper.style.display = 'none';
+        matrixTable.innerHTML = '';
+    }
+
+    startInput.addEventListener('input', resetToStart);
+    endInput.addEventListener('input', resetToStart);
+    operatorSelect.addEventListener('change', resetToStart);
+    displayModeSelect.addEventListener('change', resetToStart);
+</script>
+
+</body>
+</html>

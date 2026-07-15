@@ -162,14 +162,14 @@
             padding: 6px 16px;
             border-radius: 20px;
         }
-
         /* テーブルエリア */
         .table-wrapper {
             display: none;
             overflow: auto;
             width: 100%;
             max-height: 60vh; 
-            border: 1px solid var(--border-color);
+            /* 外枠を太めのグレーに変更して引き締める */
+            border: 2px solid #a4b2c1;
             border-radius: 12px;
             background: white;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -180,11 +180,15 @@
             border-spacing: 0;
             width: 100%;
             font-size: 14px;
+            /* テーブルの左と上にも太いメイン境界線を通す */
+            border-left: 2px solid #a4b2c1;
+            border-top: 2px solid #a4b2c1;
         }
 
         th, td {
-            border-right: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
+            /* 1マスごとの罫線を「2px」に太くし、色を少し濃いめのグレーに変更 */
+            border-right: 2px solid #cbd5e1;
+            border-bottom: 2px solid #cbd5e1;
             text-align: center;
             min-width: 52px;
             height: 52px;
@@ -197,15 +201,20 @@
         thead th {
             position: sticky;
             top: 0;
+            /* 重なり順を確保しつつ、下側の境界線を太く見せる */
             z-index: 10;
             padding: 8px 4px;
+            border-bottom: 2px solid #a4b2c1;
         }
 
         th.axis-header, td.axis-header {
             position: sticky;
             left: 0;
             z-index: 9;
+            /* 右側の境界線を太く見せる */
+            border-right: 2px solid #a4b2c1;
         }
+
         td.axis-header {
             padding: 8px 4px;
         }
@@ -219,6 +228,9 @@
             color: white;
             font-size: 16px;
             padding: 8px 4px;
+            /* コーナー部分の境界線を補強 */
+            border-right: 2px solid #a4b2c1;
+            border-bottom: 2px solid #a4b2c1;
         }
 
         th {

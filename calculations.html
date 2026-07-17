@@ -40,7 +40,9 @@
             text-align: center;
         }
 
-        /* 操作パネルのスタイル */
+        /* ==========================================
+           操作パネルのスタイル
+        ========================================== */
         .input-group {
             display: flex;
             flex-wrap: wrap;
@@ -128,6 +130,9 @@
             display: none;
         }
 
+        /* ==========================================
+           テーブル
+        ========================================== */
         .table-wrapper {
             overflow-x: auto;
             max-width: 100%;
@@ -222,8 +227,8 @@
         }
 
         /* ==========================================
-           印刷用スタイル（A4狙い）
-           ========================================== */
+           印刷用スタイル（A4・セル正方形）
+        ========================================== */
         @media print {
             @page {
                 size: A4 landscape; /* 横向き固定 */
@@ -247,11 +252,12 @@
                 width: 100%;
             }
 
-            /* タイトル消去 */
+            /* 印刷 タイトルなし */
             h1 {
                 display: none !important;
             }
 
+            /* 印刷 上部メニューなし */
             .input-group {
                 display: none !important;
             }
@@ -263,8 +269,8 @@
             }
 
             table {
-                width: 100%;
-                max-height: 100%;
+                width: auto;        /* テーブル全体の幅自動 */
+                margin: 0 auto; /* 中央寄せ */
                 table-layout: fixed;
                 page-break-inside: avoid;
                 page-break-after: avoid;
@@ -272,25 +278,45 @@
             }
 
             th, td {
-                padding: 4px 1px !important;
                 border: 1px solid #000 !important;
                 word-break: keep-all;
                 overflow: hidden;
+                box-sizing: border-box;
             }
 
-            /* 結果を「隠す」にした白いセル（.hidden-mode）の縦幅 */
+            /* ヘッダーとサイドバーの設定 */
+            th, .axis-header, .corner-header {
+                background-color: #e9ecef !important;
+                -webkit-print-color-adjust: exact !important;
+                color: black;
+                print-color-adjust: exact !important;
+                padding: 4px 1px !important;
+            }
+
+            /* 結果表示（入力）セルを正方形にする設定 */
+            .result-cell {
+                width: 45px !important;
+                height: 45px !important;
+                aspect-ratio: 1 / 1 !important; /* アスペクト比を1:1固定 */
+                padding: 0 !important;          /* 内側余白をリセット */
+                vertical-align: middle !important;
+            }
+
+            /* 結果を「隠す」にした白いセルの高さ調整を上書き */
             td.result-cell.hidden-mode {
-                padding-top: 18px !important;
-                padding-bottom: 18px !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
             }
 
             /* 三択クイズの印刷レイアウト */
             .quiz-container {
+                display: flex;
                 flex-direction: column;
-                gap: 2px;
+                gap: 1px;
                 align-items: center;
                 justify-content: center;
-                padding: 1px 0;
+                height: 100%;
+                width: 100%;
             }
 
             .quiz-option {
@@ -299,7 +325,7 @@
                 color: #000 !important;
                 text-align: center;
                 padding: 0;
-                font-size: 9.5pt;
+                font-size: 8.5pt; /* A4正方形対応の限界値 */
                 max-width: 100%;
                 width: 100%;
                 display: block;
@@ -310,12 +336,6 @@
                 display: none !important;
                 content: "" !important;
             }
-
-            th, .axis-header, .corner-header {
-                background-color: #e9ecef !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
         }
     </style>
 </head>
@@ -323,7 +343,9 @@
 
 <div class="container">
     <h1>100マスぐらい計算　生成ツール</h1>
-    
+    <div class="input-group">
+    最大15×15(超える場合はランダム)<br>マイナス値対応
+    </div>
     <div class="input-group">
         <div class="input-field">
             <label for="start-val">開始:</label>
@@ -342,17 +364,18 @@
             </select>
         </div>
         <div class="input-field">
-            <label for="display-mode">結果:</label>
+            <label for="display-mode">答え:</label>
             <select id="display-mode">
                 <option value="hide" selected>隠す</option>
-                <option value="show">表示する</option>
-                <option value="quiz">三択クイズ</option>
+                <option value="show">表示</option>
+                <option value="quiz">三択クイズ(ランダムver.)</option>
+                <option value="quiz_easy">三択クイズ(近い数ver.)</option>
             </select>
         </div>
         <label class="checkbox-field">
-            <input type="checkbox" id="random-mode" checked> ランダム
+            <input type="checkbox" id="random-mode" checked> 配置ランダム
         </label>
-        
+
         <button class="btn-print" onclick="window.print()">
             🖨️ 印刷
         </button>
@@ -378,6 +401,7 @@
     let currentRowNumbers = [];
     let currentColNumbers = [];
 
+    //三択をランダムに並び替え
     function shuffle(array) {
         const result = [...array];
         for (let i = result.length - 1; i > 0; i--) {
@@ -387,6 +411,7 @@
         return result;
     }
 
+    //三択を生成 ランダムver.
     function generateQuizOptions(correctAnswer) {
         let options = [correctAnswer];
         let range = correctAnswer === 0 ? 5 : Math.max(5, Math.abs(Math.floor(correctAnswer * 0.3)));
@@ -403,6 +428,59 @@
         return shuffle(options);
     }
 
+    //三択を生成 簡単ver.
+    // ＋－は範囲が+-2
+    // ×は+-2、2桁以上は下1桁が同じ
+    function generateQuizOptions_easy(correctAnswer, opt) {
+        let options = [correctAnswer];
+        //正数に変換
+        const absoluteValue = Math.abs(correctAnswer);
+        // 正解の符号を判定 (1:プラスまたは0, -1:マイナス)
+        const correctSign = correctAnswer >= 0 ? 1 : -1;
+        //範囲設定用 +-2の範囲
+        let offsets = [-2, -1, 1, 2];
+        let dummy = [];
+        
+        //範囲追加
+        if (opt === 'multiply') {
+            if (absoluteValue >= 10 ) {
+                // 【掛け算で2桁以上の場合】一の位を揃える範囲も追加
+                offsets = [-2, -1, 1, 2, -20, -10, 10, 20];
+            }
+        }
+        
+        //候補からダミーを生成
+        for (let offset of offsets) {
+            const candidate = correctAnswer + offset;
+            const candidateSign = candidate >= 0 ? 1 : -1;
+            
+            if (correctSign === candidateSign){
+                //記号が同じならOK
+                dummy.push(candidate)
+            } else if (-4 < candidate && candidate < 4 ) {
+                //0近辺の場合は可
+                dummy.push(candidate)
+            }
+        }
+        
+        //ダミーが足りない場合
+        while (dummy.length < 2) {
+            const sample = correctAnswer + Math.floor( Math.random() * 5 ) + 2;
+            if (!dummy.includes(sample)) {
+                dummy.push(sample);
+            }
+        }
+        
+        //ダミーを2つに絞り込む
+        dummy = shuffle(dummy);
+        options.push(dummy[0]);
+        options.push(dummy[1]);
+        
+        return shuffle(options);
+    
+    }
+
+    //表の生成
     function updateNumbersAndRender() {
         const start = parseInt(startInput.value, 10);
         const end = parseInt(endInput.value, 10);
@@ -449,6 +527,7 @@
         renderMatrix();
     }
 
+    //テーブル作成
     function renderMatrix() {
         if (currentRowNumbers.length === 0 || currentColNumbers.length === 0) return;
 
@@ -483,6 +562,15 @@
                     tableHtml += `<td class="result-cell">${result}</td>`;
                 } else if (mode === 'quiz') {
                     const choices = generateQuizOptions(result);
+                    tableHtml += `<td class="result-cell">`;
+                    tableHtml += `<div class="quiz-container">`;
+                    choices.forEach(choice => {
+                        tableHtml += `<div class="quiz-option" data-answer="${result}" data-value="${choice}" onclick="checkQuizChoice(this)">${choice}</div>`;
+                    });
+                    tableHtml += `</div>`;
+                    tableHtml += `</td>`;
+                } else if (mode === 'quiz_easy') {
+                    const choices = generateQuizOptions_easy(result,op);
                     tableHtml += `<td class="result-cell">`;
                     tableHtml += `<div class="quiz-container">`;
                     choices.forEach(choice => {
